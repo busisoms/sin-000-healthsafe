@@ -22,7 +22,7 @@ public class WardCleaner {
      * @param note a human-readable flag for follow-up, or {@code null} if none
      * @param <T> the type of the normalized value
      */
-    private record Result<T>(T result, String note){}
+    record Result<T>(T result, String note){}
 
     /**
      * Creates a cleaner that reads ward records from the given classpath resource.
@@ -49,13 +49,15 @@ public class WardCleaner {
     }
 
     /**
-     * Reads {@link #csvFile} from the classpath, skips its header row, and normalizes
-     * every remaining row into a {@link Ward}.
+     * Reads {@link #csvFile} from the classpath, skips its header row, normalizes
+     * every remaining row into a {@link Ward}, and merges rows that share a
+     * (normalized) {@code wardId} into a single record.
      *
      * @throws IllegalArgumentException if {@link #csvFile} cannot be found on the classpath
      * @throws RuntimeException if the file cannot be read or parsed as CSV
      */
     public void cleanRecords(){
+        List<Ward> cleaned = new ArrayList<>();
 
         try (InputStream is = WardCleaner.class.getClassLoader().getResourceAsStream(csvFile)) {
             if (is == null) {
@@ -67,13 +69,108 @@ public class WardCleaner {
 
                 String[] row;
                 while ((row = reader.readNext()) != null) {
-                    records.add(clean(row));
+                    cleaned.add(clean(row));
                 }
             }
 
         } catch (IOException | CsvValidationException ex) {
             throw new RuntimeException(ex);
         }
+
+        records = dedupeAndMerge(cleaned);
+    }
+
+    /**
+     * Groups cleaned wards by {@code wardId} (already normalized by {@link #normalizeId})
+     * and merges each group into a single {@link Ward}, preserving first-seen order.
+     *
+     * @param cleaned the individually-normalized wards, in encounter order
+     * @return one merged {@link Ward} per distinct wardId
+     */
+    List<Ward> dedupeAndMerge(List<Ward> cleaned){
+        Map<String, Ward> byId = new LinkedHashMap<>();
+        for (Ward ward : cleaned) {
+            byId.merge(ward.wardId(), ward, this::mergeDuplicate);
+        }
+        return new ArrayList<>(byId.values());
+    }
+
+    /**
+     * Merges two {@link Ward} records that share a wardId, field by field: for each
+     * field, a valid value wins over a placeholder/missing one, and if both are valid,
+     * {@code incoming} (the later-encountered row) wins. The merged note documents what
+     * was kept/dropped and carries forward each row's own note text.
+     *
+     * @param existing the ward accumulated so far for this wardId
+     * @param incoming the next duplicate row for this wardId
+     * @return the merged {@link Ward}
+     */
+    private Ward mergeDuplicate(Ward existing, Ward incoming){
+        List<String> notes = new ArrayList<>();
+        notes.add("Duplicate wardId detected — merged with another record for '%s'"
+                .formatted(incoming.wardId()));
+
+        Result<String> wing = mergeText("wing", existing.wing(), incoming.wing());
+        addNote(wing.note(), notes);
+        Result<String> department = mergeText("department", existing.department(), incoming.department());
+        addNote(department.note(), notes);
+        Result<Integer> beds = mergeBeds(existing.bedsAvailable(), incoming.bedsAvailable());
+        addNote(beds.note(), notes);
+
+        if (existing.note() != null && !existing.note().isBlank()) notes.add(existing.note());
+        if (incoming.note() != null && !incoming.note().isBlank()) notes.add(incoming.note());
+
+        return new Ward(existing.wardId(), wing.result(), department.result(), beds.result(), notes(notes));
+    }
+
+    /**
+     * Merges a text field (wing/department) across two duplicate rows. {@code "Unknown"}
+     * is treated as the placeholder/invalid sentinel, matching what {@link #normalizeWing}
+     * and {@link #normalizeDepartment} emit for blank/invalid input.
+     *
+     * @param field the field name, used only for the note text
+     * @param existingVal the accumulated value so far
+     * @param incomingVal the next duplicate row's value
+     * @return the merged value and, if a value was dropped, a note explaining why
+     */
+    Result<String> mergeText(String field, String existingVal, String incomingVal){
+        boolean existingValid = !"Unknown".equals(existingVal);
+        boolean incomingValid = !"Unknown".equals(incomingVal);
+        if (incomingValid) {
+            String note = (existingValid && !existingVal.equals(incomingVal))
+                    ? "%s: kept '%s' (more recent duplicate), dropped '%s'"
+                            .formatted(field, incomingVal, existingVal)
+                    : null;
+            return new Result<>(incomingVal, note);
+        }
+        if (existingValid) {
+            return new Result<>(existingVal, "%s: kept '%s' from earlier duplicate (later row was Unknown)"
+                    .formatted(field, existingVal));
+        }
+        return new Result<>("Unknown", null);
+    }
+
+    /**
+     * Merges {@code bedsAvailable} across two duplicate rows. {@code null} is treated as
+     * the missing/invalid sentinel, matching {@link #normalizeAvailableBeds}.
+     *
+     * @param existingVal the accumulated value so far
+     * @param incomingVal the next duplicate row's value
+     * @return the merged value and, if a value was dropped, a note explaining why
+     */
+    Result<Integer> mergeBeds(Integer existingVal, Integer incomingVal){
+        if (incomingVal != null) {
+            String note = (existingVal != null && !existingVal.equals(incomingVal))
+                    ? "bedsAvailable: kept %d (more recent duplicate), dropped %d"
+                            .formatted(incomingVal, existingVal)
+                    : null;
+            return new Result<>(incomingVal, note);
+        }
+        if (existingVal != null) {
+            return new Result<>(existingVal, "bedsAvailable: kept %d from earlier duplicate (later row was invalid)"
+                    .formatted(existingVal));
+        }
+        return new Result<>(null, null);
     }
 
     /**
