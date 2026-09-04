@@ -1,4 +1,4 @@
-package co.wethinkcode.healthsafe.models;
+package co.wethinkcode.healthsafe;
 
 
 /**

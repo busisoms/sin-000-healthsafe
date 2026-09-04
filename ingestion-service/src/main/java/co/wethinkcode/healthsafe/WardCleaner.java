@@ -1,4 +1,4 @@
-package co.wethinkcode.healthsafe.models;
+package co.wethinkcode.healthsafe;
 
 import com.opencsv.*;
 import com.opencsv.exceptions.CsvValidationException;
@@ -20,7 +20,7 @@ public class WardCleaner {
      *
      * @param result the normalized value
      * @param note a human-readable flag for follow-up, or {@code null} if none
-     * @param <T>    the type of the normalized value
+     * @param <T> the type of the normalized value
      */
     private record Result<T>(T result, String note){}
 
@@ -44,19 +44,8 @@ public class WardCleaner {
         return Collections.unmodifiableList(records);
     }
 
-    /**
-     * Finds a cleaned ward by its normalized id.
-     *
-     * @param id the ward id to search for; matched case-insensitively against the
-     *           normalized id stored on each record
-     * @return the matching {@link Ward}, or {@code null} if none is found
-     */
-    public Ward searchById(String id){
-        String normalizedId = normalizeId(id);
-        for (Ward record : records){
-            if (record.wardId().equals(normalizedId)) return record;
-        }
-        return null;
+    public int recordCount(){
+        return records.size();
     }
 
     /**
@@ -85,7 +74,6 @@ public class WardCleaner {
         } catch (IOException | CsvValidationException ex) {
             throw new RuntimeException(ex);
         }
-
     }
 
     /**
