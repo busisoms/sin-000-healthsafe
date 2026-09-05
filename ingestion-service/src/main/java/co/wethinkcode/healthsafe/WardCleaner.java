@@ -44,10 +44,6 @@ public class WardCleaner {
         return Collections.unmodifiableList(records);
     }
 
-    public int recordCount(){
-        return records.size();
-    }
-
     /**
      * Reads {@link #csvFile} from the classpath, skips its header row, normalizes
      * every remaining row into a {@link Ward}, and merges rows that share a

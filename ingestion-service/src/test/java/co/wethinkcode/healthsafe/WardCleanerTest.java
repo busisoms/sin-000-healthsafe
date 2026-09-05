@@ -14,7 +14,7 @@ class WardCleanerTest {
         cleaner.cleanRecords();
 
         // 18 raw rows, one duplicate pair (W-05 / w-05) -> 17 merged records
-        assertEquals(17, cleaner.recordCount());
+        assertEquals(17, cleaner.records().size());
 
         long w05Count = cleaner.records().stream()
                 .filter(w -> w.wardId().equals("W-05"))

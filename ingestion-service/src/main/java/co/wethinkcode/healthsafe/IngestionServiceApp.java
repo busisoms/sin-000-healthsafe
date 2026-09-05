@@ -13,8 +13,7 @@ public class IngestionServiceApp {
 
         app.get("/health", ctx -> ctx.result("OK"));
         app.get("/wards", ctx ->
-                ctx.json(Map.of("data", cleaner.records(),
-                        "count", cleaner.recordCount()))
+                ctx.json(Map.of("data", cleaner.records()))
         );
 
     }
