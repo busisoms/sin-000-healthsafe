@@ -7,10 +7,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * An HTTP client that fetches cleaned ward records from ingestion-service
@@ -49,6 +46,46 @@ public class WardClient {
             if (ward.wardId().equals(id)) return ward;
         }
         return null;
+    }
+
+    /**
+     * Groups the cached wards by department and aggregates each group into a
+     * {@link Department} and how many wards it has.
+     *
+     * @return one {@link Department} per distinct department name found among the
+     *         cached wards (including {@code "Unknown"} if any ward has no department
+     *         on record); empty if {@link #fetchWards()} hasn't been called yet or has
+     *         always failed
+     */
+    public List<Department> departments() {
+
+        if (wards == null || wards.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Map<String, List<Ward>> byDepartment = new HashMap<>();
+        for (Ward ward : wards) {
+            String dept = ward.department();
+            if (dept == null) {
+                dept = "Unknown";
+            }
+
+            if (!byDepartment.containsKey(dept)) {
+                byDepartment.put(dept, new ArrayList<>());
+            }
+            byDepartment.get(dept).add(ward);
+        }
+
+        // Convert map entries to Department objects
+        List<Department> result = new ArrayList<>();
+        for (Map.Entry<String, List<Ward>> entry : byDepartment.entrySet()) {
+            result.add(new Department(
+                    entry.getKey(),
+                    entry.getValue().size()
+            ));
+        }
+
+        return result;
     }
 
     /**
