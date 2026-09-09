@@ -12,7 +12,7 @@ public class ScheduleCalculator {
     private  final Map<String, Integer> baselines = Map.of(
             "icu", 3,
             "cardiology", 2, "maternity", 2, "paediatrics", 2,
-            "oncology", 1, "radiology", 1, "unknown", 0);
+            "oncology", 1, "radiology", 1);
 
     private final StaffingClient client;
 
@@ -31,7 +31,6 @@ public class ScheduleCalculator {
      * @throws WardNotFoundException if ward-service has no ward with that id
      * @throws UpstreamServiceException if either downstream service is unreachable,
      *         times out, or answers with something unusable
-     * @throws NullPointerException if the ward's department has no baseline on record
      */
     public OnCallSchedule calculate(String wardId){
         Ward ward = client.fetchWard(wardId);
@@ -39,8 +38,9 @@ public class ScheduleCalculator {
 
         AlertBand band = AlertBand.fromLevel(level);
         String department = ward.department();
-        int numberOfStaff = band.staffCall(baselines
-                .get(department.toLowerCase()));
+
+        int baseline = baselines.getOrDefault(department.toLowerCase(), 1);
+        int numberOfStaff = band.staffCall(baseline);
 
         return new OnCallSchedule(
                 ward.wardId(),
