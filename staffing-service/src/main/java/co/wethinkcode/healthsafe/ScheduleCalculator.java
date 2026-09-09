@@ -12,7 +12,8 @@ public class ScheduleCalculator {
     private  final Map<String, Integer> baselines = Map.of(
             "icu", 3,
             "cardiology", 2, "maternity", 2, "paediatrics", 2,
-            "oncology", 1, "radiology", 1);
+            "oncology", 1, "radiology", 1,
+            "unknown", 0);
 
     private final StaffingClient client;
 
@@ -27,7 +28,9 @@ public class ScheduleCalculator {
      * Builds the on-call schedule for one ward.
      *
      * @param wardId the ward to schedule for
-     * @return the computed schedule
+     * @return the computed schedule; a ward whose department is {@code "unknown"}
+     *         gets a baseline of {@code 0} (nothing to staff against), while any
+     *         other department not yet in {@code baselines} defaults to {@code 1}
      * @throws WardNotFoundException if ward-service has no ward with that id
      * @throws UpstreamServiceException if either downstream service is unreachable,
      *         times out, or answers with something unusable
