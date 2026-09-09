@@ -10,16 +10,20 @@ import java.net.http.HttpResponse;
 import java.util.Map;
 
 public class StaffingClient {
-    private static final HttpClient httpClient = HttpClient.newHttpClient();
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final String wardUrl;
+    private final String levelUrl;
 
 
-    public static Ward getWard(String id){
-        String URL = "http://localhost:7031/wards/" + id;
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(URL))
-                .GET()
-                .build();
+    public StaffingClient(String wardUrl, String levelUrl) {
+        this.wardUrl = wardUrl;
+        this.levelUrl = levelUrl;
+    }
+
+
+    public Ward fetchWard(String id){
+        HttpRequest request = request(wardUrl + "/wards/" +  id);
 
         try {
             HttpResponse<String> response =
@@ -36,17 +40,13 @@ public class StaffingClient {
             return objectMapper.convertValue(rawWard, Ward.class);
 
         } catch (IOException | InterruptedException e) {
-            throw new UpStreamServiceException(e.getMessage());
+            throw new UpstreamServiceException(e.getMessage());
         }
 
     }
 
-    public static int alertLevel(){
-        String URL = "http://localhost:7032/alert-level";
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(URL))
-                .GET()
-                .build();
+    public int fetchCurrentLevel(){
+        HttpRequest request = request(levelUrl + "/alert-level");
 
         try {
             HttpResponse<String> response =
@@ -57,8 +57,17 @@ public class StaffingClient {
             return objectMapper.convertValue(body.get("level"), Integer.class);
 
         } catch (IOException | InterruptedException e) {
-            throw new UpStreamServiceException(e.getMessage());
+            throw new UpstreamServiceException(e.getMessage());
         }
 
     }
+
+    private HttpRequest request(String url) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .GET()
+                .build();
+        return request;
+    }
+
 }
