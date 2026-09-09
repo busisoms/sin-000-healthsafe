@@ -50,8 +50,6 @@ public class WardServiceApp {
         wardServiceApp.wardsId();
         wardServiceApp.departments();
 
-        // TODO (Provides lists of wards and departments.)
-        // Add domain endpoints for ward-service here.
     }
 }
 
